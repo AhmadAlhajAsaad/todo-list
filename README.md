@@ -1,5 +1,6 @@
-# New Project
+# TypeScript ToDo List
 
+A simple ToDo List built with TypeScript, HTML, and CSS.
 > ✨ Bootstrapped with Create Snowpack App (CSA).
 
 ## Available Scripts
