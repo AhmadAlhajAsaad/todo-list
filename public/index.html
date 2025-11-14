@@ -17,6 +17,26 @@
       <button type="submit">Add</button>
     </form>
 
+    <!-- Search + Export/Import Toolbar -->
+    <div class="toolbar">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Search tasks..."
+        autocomplete="off"
+      />
+      <div class="toolbar-right">
+        <button id="export-json" type="button" title="Export all tasks to JSON">Export JSON</button>
+        <button id="import-json" type="button" title="Import tasks from JSON file">Import JSON</button>
+        <input
+          id="import-file"
+          type="file"
+          accept="application/json"
+          style="display:none"
+        />
+      </div>
+    </div>
+
     <div class="bulk-actions">
       <button id="complete-all" type="button" title="Mark all tasks as completed">Complete All</button>
       <button id="incomplete-all" type="button" title="Mark all tasks as incomplete">Incomplete All</button>
