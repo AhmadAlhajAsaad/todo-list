@@ -14,8 +14,11 @@ export default {
     ],
   ],
   routes: [
-    /* Enable an SPA Fallback in development: */
-    // {"match": "routes", "src": ".*", "dest": "/index.html"},
+    {
+      match: 'all',
+      src: '.*',
+      dest: '/index.html',
+    },
   ],
   optimize: {
     /* Example: Bundle your final build: */
@@ -25,7 +28,9 @@ export default {
     /* ... */
   },
   devOptions: {
-    /* ... */
+    hostname: 'localhost',
+    port: 8080,
+    open: 'none',
   },
   buildOptions: {
     /* ... */
