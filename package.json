@@ -5,7 +5,7 @@
   },
   "dependencies": {
     "canvas-confetti": "^1.2.0",
-    "uuid": "^14.0.0"
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@snowpack/plugin-typescript": "^1.2.1",
