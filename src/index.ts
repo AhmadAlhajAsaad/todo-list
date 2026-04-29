@@ -1,4 +1,7 @@
-import { v4 as uuidv4 } from "uuid";
+const uuidv4 = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `id-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 
 /** ===== Types & Storage Keys ===== */
 type Filter = "all" | "active" | "completed";
