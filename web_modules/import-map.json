@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "canvas-confetti": "./canvas-confetti.js",
+    "uuid": "./uuid.js"
+  }
+}
