@@ -22,4 +22,4 @@ Your app is ready to be deployed!
 
 ### Q: What about Eject?
 
-No eject 
+No eject
