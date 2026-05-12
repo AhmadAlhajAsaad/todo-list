@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Todo List</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="module" src="/src/index.ts"></script>
+</head>
+<body>
+  <main class="app">
+    <h1>My Todo List</h1>
+
+    <form id="container" class="add-form">
+      <input id="todo-input" type="text" placeholder="Add a new task..." autocomplete="off" />
+      <button type="submit">Add</button>
+    </form>
+
+    <!-- Search + Export/Import Toolbar -->
+    <div class="toolbar">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Search tasks..."
+        autocomplete="off"
+      />
+      <div class="toolbar-right">
+        <button id="export-json" type="button" title="Export all tasks to JSON">Export JSON</button>
+        <button id="import-json" type="button" title="Import tasks from JSON file">Import JSON</button>
+        <input
+          id="import-file"
+          type="file"
+          accept="application/json"
+          style="display:none"
+        />
+      </div>
+    </div>
+
+    <div class="bulk-actions">
+      <button id="complete-all" type="button" title="Mark all tasks as completed">Complete All</button>
+      <button id="incomplete-all" type="button" title="Mark all tasks as incomplete">Incomplete All</button>
+      <button id="clear-completed" type="button" title="Delete all completed tasks">Clear Completed</button>
+    </div>
+
+    <ul id="list" class="todo-list" aria-live="polite"></ul>
+
+    <footer class="footer">
+      <div class="filters">
+        <button id="filter-all"        type="button" data-filter="all">All</button>
+        <button id="filter-active"     type="button" data-filter="active">Active</button>
+        <button id="filter-completed"  type="button" data-filter="completed">Completed</button>
+      </div>
+      <span class="counter"><span id="items-left">0</span> left</span>
+    </footer>
+  </main>
+</body>
+</html>
