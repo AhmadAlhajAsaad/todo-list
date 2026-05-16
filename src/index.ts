@@ -5,16 +5,26 @@ const uuidv4 = () =>
 
 /** ===== Types & Storage Keys ===== */
 type Filter = "all" | "active" | "completed";
+type Priority = "low" | "medium" | "high";
 
 interface Task {
   id: string;
   title: string;
   completed: boolean;
   createdAt: number;
+  dueDate?: number; // timestamp
+  priority: Priority;
+  category: string;
+  parentId?: string; // for subtasks
+  timeSpent: number; // milliseconds
+  isTracking: boolean;
+  startedAt?: number; // when tracking started
 }
 
-const STORAGE_KEY = "todo.tasks.v1";
+const STORAGE_KEY = "todo.tasks.v2";
 const FILTER_KEY = "todo.filter.v1";
+const DARK_MODE_KEY = "todo.darkmode.v1";
+const CATEGORIES_KEY = "todo.categories.v1";
 
 /** ===== DOM Refs ===== */
 const form = document.getElementById("container") as HTMLFormElement;
@@ -44,6 +54,9 @@ let tasks: Task[] = loadTasks();
 let filter: Filter = loadFilter();
 let searchQuery = "";
 let draggedId: string | null = null;
+let isDarkMode = loadDarkMode();
+let categories: string[] = loadCategories();
+let activeCategory = "all";
 
 /** ===== Load/Save from localStorage ===== */
 function loadTasks(): Task[] {
@@ -69,8 +82,33 @@ function saveFilter() {
   localStorage.setItem(FILTER_KEY, filter);
 }
 
+function loadDarkMode(): boolean {
+  const saved = localStorage.getItem(DARK_MODE_KEY);
+  if (saved === null) {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  return saved === "true";
+}
+
+function saveDarkMode() {
+  localStorage.setItem(DARK_MODE_KEY, isDarkMode ? "true" : "false");
+}
+
+function loadCategories(): string[] {
+  try {
+    const raw = localStorage.getItem(CATEGORIES_KEY);
+    return raw ? JSON.parse(raw) : ["Work", "Personal", "Shopping"];
+  } catch {
+    return ["Work", "Personal", "Shopping"];
+  }
+}
+
+function saveCategories() {
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+}
+
 /** ===== Helpers ===== */
-function addTask(title: string) {
+function addTask(title: string, dueDate?: number, priority: Priority = "medium", category: string = "Personal", parentId?: string) {
   const t = title.trim();
   if (!t) return;
   const task: Task = {
@@ -78,6 +116,12 @@ function addTask(title: string) {
     title: t,
     completed: false,
     createdAt: Date.now(),
+    dueDate,
+    priority,
+    category: category || "Personal",
+    parentId,
+    timeSpent: 0,
+    isTracking: false,
   };
   tasks.unshift(task);
   saveTasks();
@@ -111,6 +155,87 @@ function renameTask(id: string, newTitle: string) {
   }
 }
 
+function updateTaskPriority(id: string, priority: Priority) {
+  const t = tasks.find((x) => x.id === id);
+  if (t) {
+    t.priority = priority;
+    saveTasks();
+    render();
+  }
+}
+
+function updateTaskCategory(id: string, category: string) {
+  const t = tasks.find((x) => x.id === id);
+  if (t) {
+    t.category = category;
+    saveTasks();
+    render();
+  }
+}
+
+function updateTaskDueDate(id: string, dueDate?: number) {
+  const t = tasks.find((x) => x.id === id);
+  if (t) {
+    t.dueDate = dueDate;
+    saveTasks();
+    render();
+  }
+}
+
+function toggleTimeTracking(id: string) {
+  const t = tasks.find((x) => x.id === id);
+  if (!t) return;
+  
+  if (t.isTracking) {
+    // Stop tracking
+    if (t.startedAt) {
+      t.timeSpent += Date.now() - t.startedAt;
+    }
+    t.isTracking = false;
+    t.startedAt = undefined;
+  } else {
+    // Start tracking
+    t.isTracking = true;
+    t.startedAt = Date.now();
+  }
+  saveTasks();
+  render();
+}
+
+function addSubtask(parentId: string, title: string) {
+  const t = title.trim();
+  if (!t) return;
+  const parent = tasks.find((x) => x.id === parentId);
+  if (!parent) return;
+  
+  const task: Task = {
+    id: uuidv4(),
+    title: t,
+    completed: false,
+    createdAt: Date.now(),
+    priority: "medium",
+    category: parent.category,
+    parentId,
+    timeSpent: 0,
+    isTracking: false,
+  };
+  tasks.push(task);
+  saveTasks();
+  render();
+}
+
+function getSubtasks(parentId: string): Task[] {
+  return tasks.filter((t) => t.parentId === parentId);
+}
+
+function addCategory(name: string) {
+  const n = name.trim();
+  if (n && !categories.includes(n)) {
+    categories.push(n);
+    saveCategories();
+  }
+}
+
 function clearCompleted() {
   tasks = tasks.filter((t) => !t.completed);
   saveTasks();
@@ -133,7 +258,7 @@ function setAll(completed: boolean) {
 
 /** Filter + Search combined */
 function getVisibleTasks(): Task[] {
-  let filtered = tasks;
+  let filtered = tasks.filter(t => !t.parentId); // Only top-level tasks
 
   switch (filter) {
     case "active":
@@ -147,12 +272,31 @@ function getVisibleTasks(): Task[] {
       break;
   }
 
+  // Filter by category
+  if (activeCategory !== "all") {
+    filtered = filtered.filter((t) => t.category === activeCategory);
+  }
+
   const q = searchQuery.trim().toLowerCase();
   if (q) {
     filtered = filtered.filter((t) =>
       t.title.toLowerCase().includes(q)
     );
   }
+
+  // Sort by priority (high > medium > low) and then by due date
+  filtered.sort((a, b) => {
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    const aPriority = priorityOrder[a.priority];
+    const bPriority = priorityOrder[b.priority];
+    
+    if (aPriority !== bPriority) return bPriority - aPriority;
+    
+    // Then sort by due date
+    const aDue = a.dueDate || Infinity;
+    const bDue = b.dueDate || Infinity;
+    return aDue - bDue;
+  });
 
   return filtered;
 }
@@ -183,54 +327,171 @@ function reorderTasks(sourceId: string, targetId: string) {
   render();
 }
 
+/** Utility to format time */
+function formatTime(ms: number): string {
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+  
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 /** ===== Render ===== */
 function render() {
   const visible = getVisibleTasks();
   list.innerHTML = "";
 
   for (const t of visible) {
-    const li = document.createElement("li");
-    li.className = "todo-item";
-    li.dataset.id = t.id;
-    li.draggable = true; // enable drag & drop
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "toggle";
-    checkbox.checked = t.completed;
-    checkbox.setAttribute("aria-label", "Toggle task completion");
-
-    const title = document.createElement("span");
-    title.className = "title";
-    title.textContent = t.title;
-    if (t.completed) title.classList.add("completed");
-
-    // Inline rename on double click
-    title.addEventListener("dblclick", () => {
-      startInlineEdit(li, t);
-    });
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "delete";
-    delBtn.type = "button";
-    delBtn.title = "Delete this task";
-    delBtn.textContent = "Delete";
-
-    li.appendChild(checkbox);
-    li.appendChild(title);
-    li.appendChild(delBtn);
-
+    const li = createTaskElement(t);
     list.appendChild(li);
+    
+    // Add subtasks if any
+    const subtasks = getSubtasks(t.id);
+    for (const sub of subtasks) {
+      const subLi = createTaskElement(sub, true);
+      list.appendChild(subLi);
+    }
   }
 
   // Items left counter
-  const left = tasks.filter((t) => !t.completed).length;
+  const left = tasks.filter((t) => !t.completed && !t.parentId).length;
   itemsLeft.textContent = String(left);
 
   // Highlight active filter
   for (const btn of [filterAllBtn, filterActiveBtn, filterCompletedBtn]) {
     btn.classList.toggle("active", btn.dataset.filter === filter);
   }
+}
+
+function createTaskElement(t: Task, isSubtask = false): HTMLLIElement {
+  const li = document.createElement("li");
+  li.className = isSubtask ? "todo-item subtask" : "todo-item";
+  li.dataset.id = t.id;
+  li.draggable = true;
+
+  // Checkbox
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "toggle";
+  checkbox.checked = t.completed;
+  checkbox.setAttribute("aria-label", "Toggle task completion");
+
+  // Priority badge
+  const priorityBadge = document.createElement("span");
+  priorityBadge.className = `priority-badge priority-${t.priority}`;
+  priorityBadge.title = `Priority: ${t.priority}`;
+  
+  // Title
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = t.title;
+  if (t.completed) title.classList.add("completed");
+
+  title.addEventListener("dblclick", () => {
+    startInlineEdit(li, t);
+  });
+
+  // Task info container
+  const infoContainer = document.createElement("div");
+  infoContainer.className = "task-info";
+
+  // Category badge
+  const categoryBadge = document.createElement("span");
+  categoryBadge.className = "category-badge";
+  categoryBadge.textContent = t.category;
+  infoContainer.appendChild(categoryBadge);
+
+  // Due date badge
+  if (t.dueDate) {
+    const dueBadge = document.createElement("span");
+    dueBadge.className = "due-badge";
+    const isOverdue = t.dueDate < Date.now() && !t.completed;
+    if (isOverdue) dueBadge.classList.add("overdue");
+    dueBadge.textContent = formatDate(t.dueDate);
+    infoContainer.appendChild(dueBadge);
+  }
+
+  // Time tracking display
+  if (t.timeSpent > 0 || t.isTracking) {
+    const timeBadge = document.createElement("span");
+    timeBadge.className = "time-badge";
+    if (t.isTracking) {
+      timeBadge.classList.add("tracking");
+      // Update time display every second
+      setInterval(() => {
+        const current = t.timeSpent + (t.isTracking && t.startedAt ? Date.now() - t.startedAt : 0);
+        timeBadge.textContent = formatTime(current);
+      }, 1000);
+    }
+    timeBadge.textContent = formatTime(t.timeSpent);
+    infoContainer.appendChild(timeBadge);
+  }
+
+  // Action buttons container
+  const actionsContainer = document.createElement("div");
+  actionsContainer.className = "task-actions";
+
+  // Time tracking button
+  const trackBtn = document.createElement("button");
+  trackBtn.className = `track-btn ${t.isTracking ? "tracking" : ""}`;
+  trackBtn.type = "button";
+  trackBtn.title = t.isTracking ? "Stop tracking" : "Start tracking";
+  trackBtn.textContent = t.isTracking ? "⏸" : "⏱";
+  trackBtn.addEventListener("click", () => toggleTimeTracking(t.id));
+  actionsContainer.appendChild(trackBtn);
+
+  // Add subtask button (only for parent tasks)
+  if (!t.parentId) {
+    const addSubBtn = document.createElement("button");
+    addSubBtn.className = "add-sub-btn";
+    addSubBtn.type = "button";
+    addSubBtn.title = "Add subtask";
+    addSubBtn.textContent = "+";
+    addSubBtn.addEventListener("click", () => {
+      const title = prompt("Subtask title:");
+      if (title) addSubtask(t.id, title);
+    });
+    actionsContainer.appendChild(addSubBtn);
+  }
+
+  // Delete button
+  const delBtn = document.createElement("button");
+  delBtn.className = "delete";
+  delBtn.type = "button";
+  delBtn.title = "Delete this task";
+  delBtn.textContent = "Delete";
+  actionsContainer.appendChild(delBtn);
+
+  // Edit button
+  const editBtn = document.createElement("button");
+  editBtn.className = "edit-btn";
+  editBtn.type = "button";
+  editBtn.title = "Edit task";
+  editBtn.textContent = "✏";
+  editBtn.addEventListener("click", () => openTaskEditor(t));
+  actionsContainer.appendChild(editBtn);
+
+  li.appendChild(checkbox);
+  li.appendChild(priorityBadge);
+  li.appendChild(title);
+  li.appendChild(infoContainer);
+  li.appendChild(actionsContainer);
+
+  return li;
 }
 
 function startInlineEdit(li: HTMLLIElement, task: Task) {
@@ -256,6 +517,99 @@ function startInlineEdit(li: HTMLLIElement, task: Task) {
     if (e.key === "Escape") cancel();
   });
   input.addEventListener("blur", commit);
+}
+
+function openTaskEditor(task: Task) {
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  
+  const modalContent = document.createElement("div");
+  modalContent.className = "modal-content";
+  
+  const title = document.createElement("h2");
+  title.textContent = "Edit Task";
+  
+  const form = document.createElement("div");
+  form.className = "edit-form";
+  
+  // Title field
+  const titleLabel = document.createElement("label");
+  titleLabel.textContent = "Title:";
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.value = task.title;
+  form.appendChild(titleLabel);
+  form.appendChild(titleInput);
+  
+  // Priority field
+  const priorityLabel = document.createElement("label");
+  priorityLabel.textContent = "Priority:";
+  const prioritySelect = document.createElement("select");
+  const priorities: Priority[] = ["low", "medium", "high"];
+  for (const p of priorities) {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+    opt.selected = task.priority === p;
+    prioritySelect.appendChild(opt);
+  }
+  form.appendChild(priorityLabel);
+  form.appendChild(prioritySelect);
+  
+  // Category field
+  const categoryLabel = document.createElement("label");
+  categoryLabel.textContent = "Category:";
+  const categorySelect = document.createElement("select");
+  for (const cat of categories) {
+    const opt = document.createElement("option");
+    opt.value = cat;
+    opt.textContent = cat;
+    opt.selected = task.category === cat;
+    categorySelect.appendChild(opt);
+  }
+  form.appendChild(categoryLabel);
+  form.appendChild(categorySelect);
+  
+  // Due date field
+  const dueDateLabel = document.createElement("label");
+  dueDateLabel.textContent = "Due Date:";
+  const dueDateInput = document.createElement("input");
+  dueDateInput.type = "date";
+  if (task.dueDate) {
+    dueDateInput.valueAsDate = new Date(task.dueDate);
+  }
+  form.appendChild(dueDateLabel);
+  form.appendChild(dueDateInput);
+  
+  // Buttons
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "modal-buttons";
+  
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent = "Save";
+  saveBtn.addEventListener("click", () => {
+    renameTask(task.id, titleInput.value);
+    updateTaskPriority(task.id, prioritySelect.value as Priority);
+    updateTaskCategory(task.id, categorySelect.value);
+    const dueDate = dueDateInput.valueAsDate ? dueDateInput.valueAsDate.getTime() : undefined;
+    updateTaskDueDate(task.id, dueDate);
+    document.body.removeChild(modal);
+  });
+  
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => {
+    document.body.removeChild(modal);
+  });
+  
+  buttonContainer.appendChild(saveBtn);
+  buttonContainer.appendChild(cancelBtn);
+  form.appendChild(buttonContainer);
+  
+  modalContent.appendChild(title);
+  modalContent.appendChild(form);
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
 }
 
 /** ===== UI Events ===== */
