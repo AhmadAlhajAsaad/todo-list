@@ -37,17 +37,20 @@ const btnClearCompleted = document.getElementById("clear-completed") as HTMLButt
 
 const filterAllBtn = document.getElementById("filter-all") as HTMLButtonElement;
 const filterActiveBtn = document.getElementById("filter-active") as HTMLButtonElement;
-const filterCompletedBtn = document.getElementById(
-  "filter-completed"
-) as HTMLButtonElement;
+const filterCompletedBtn = document.getElementById("filter-completed") as HTMLButtonElement;
 
 const itemsLeft = document.getElementById("items-left") as HTMLSpanElement;
 
-// New: search + export/import
+// Search + export/import
 const searchInput = document.getElementById("search-input") as HTMLInputElement;
 const exportBtn = document.getElementById("export-json") as HTMLButtonElement;
 const importBtn = document.getElementById("import-json") as HTMLButtonElement;
 const importFileInput = document.getElementById("import-file") as HTMLInputElement;
+
+// New: dark mode + category filter
+const darkModeBtn = document.getElementById("dark-mode-btn") as HTMLButtonElement;
+const categoryFilter = document.getElementById("category-filter") as HTMLSelectElement;
+const addCategoryBtn = document.getElementById("add-category-btn") as HTMLButtonElement;
 
 /** ===== App State ===== */
 let tasks: Task[] = loadTasks();
@@ -616,7 +619,8 @@ function openTaskEditor(task: Task) {
 // Add task
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-  addTask(input.value);
+  const category = (categoryFilter as HTMLSelectElement).value || "Personal";
+  addTask(input.value, undefined, "medium", category);
   input.value = "";
   input.focus();
 });
@@ -661,6 +665,51 @@ function setFilter(f: Filter) {
 filterAllBtn.addEventListener("click", () => setFilter("all"));
 filterActiveBtn.addEventListener("click", () => setFilter("active"));
 filterCompletedBtn.addEventListener("click", () => setFilter("completed"));
+
+/** Dark mode toggle */
+function toggleDarkMode() {
+  isDarkMode = !isDarkMode;
+  saveDarkMode();
+  applyDarkMode();
+  render();
+}
+
+function applyDarkMode() {
+  if (isDarkMode) {
+    document.documentElement.classList.add("dark-mode");
+    darkModeBtn.textContent = "☀️";
+    darkModeBtn.title = "Switch to light mode";
+  } else {
+    document.documentElement.classList.remove("dark-mode");
+    darkModeBtn.textContent = "🌙";
+    darkModeBtn.title = "Switch to dark mode";
+  }
+}
+
+darkModeBtn.addEventListener("click", toggleDarkMode);
+
+/** Category filter */
+function updateCategoryFilter() {
+  activeCategory = categoryFilter.value || "all";
+  render();
+}
+
+categoryFilter.addEventListener("change", updateCategoryFilter);
+
+/** Add category */
+addCategoryBtn.addEventListener("click", () => {
+  const newCat = prompt("New category name:");
+  if (newCat) {
+    addCategory(newCat);
+    // Update category select
+    const opt = document.createElement("option");
+    opt.value = newCat;
+    opt.textContent = newCat;
+    categoryFilter.appendChild(opt);
+    categoryFilter.value = newCat;
+    updateCategoryFilter();
+  }
+});
 
 /** Drag & Drop events on the list */
 function resetDragVisualState() {
@@ -795,5 +844,18 @@ window.addEventListener("storage", (e) => {
   }
 });
 
+/** Initial setup */
+function initCategoryFilter() {
+  categoryFilter.innerHTML = '<option value="all">All Categories</option>';
+  for (const cat of categories) {
+    const opt = document.createElement("option");
+    opt.value = cat;
+    opt.textContent = cat;
+    categoryFilter.appendChild(opt);
+  }
+}
+
 /** Initial Render */
+applyDarkMode();
+initCategoryFilter();
 render();
