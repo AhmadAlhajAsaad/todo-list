@@ -4,16 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Todo List</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="public/style.css" />
   <script type="module" src="/src/index.ts"></script>
 </head>
 <body>
   <main class="app">
-    <h1>My Todo List</h1>
+    <header class="app-header">
+      <h1>My Todo List</h1>
+      <button id="dark-mode-btn" class="dark-mode-btn" title="Toggle dark mode">🌙</button>
+    </header>
 
+    <!-- Add task form -->
     <form id="container" class="add-form">
+      <select id="category-filter" class="category-select">
+        <option value="Personal">Personal</option>
+      </select>
       <input id="todo-input" type="text" placeholder="Add a new task..." autocomplete="off" />
       <button type="submit">Add</button>
+      <button id="add-category-btn" type="button" title="Add new category">+ Category</button>
     </form>
 
     <!-- Search + Export/Import Toolbar -->
@@ -36,18 +44,28 @@
       </div>
     </div>
 
+    <!-- Bulk actions -->
     <div class="bulk-actions">
       <button id="complete-all" type="button" title="Mark all tasks as completed">Complete All</button>
       <button id="incomplete-all" type="button" title="Mark all tasks as incomplete">Incomplete All</button>
       <button id="clear-completed" type="button" title="Delete all completed tasks">Clear Completed</button>
     </div>
 
+    <!-- Todo list -->
     <ul id="list" class="todo-list" aria-live="polite"></ul>
 
+    <!-- Footer -->
     <footer class="footer">
       <div class="filters">
-        <button id="filter-all"        type="button" data-filter="all">All</button>
-        <button id="filter-active"     type="button" data-filter="active">Active</button>
+        <button id="filter-all" type="button" data-filter="all">All</button>
+        <button id="filter-active" type="button" data-filter="active">Active</button>
+        <button id="filter-completed" type="button" data-filter="completed">Completed</button>
+      </div>
+      <span class="counter"><span id="items-left">0</span> left</span>
+    </footer>
+  </main>
+</body>
+</html>
         <button id="filter-completed"  type="button" data-filter="completed">Completed</button>
       </div>
       <span class="counter"><span id="items-left">0</span> left</span>
