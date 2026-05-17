@@ -44,6 +44,7 @@ const itemsLeft = document.getElementById("items-left") as HTMLSpanElement;
 // Search + export/import
 const searchInput = document.getElementById("search-input") as HTMLInputElement;
 const exportBtn = document.getElementById("export-json") as HTMLButtonElement;
+const exportCsvBtn = document.getElementById("export-csv") as HTMLButtonElement;
 const importBtn = document.getElementById("import-json") as HTMLButtonElement;
 const importFileInput = document.getElementById("import-file") as HTMLInputElement;
 
@@ -780,6 +781,62 @@ exportBtn.addEventListener("click", () => {
   a.remove();
   URL.revokeObjectURL(url);
 });
+
+/** Export CSV/Excel (CSV) */
+function escapeCsv(value: any): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function exportTasksCSV() {
+  // flatten tasks into rows including subtasks
+  const headers = [
+    "id",
+    "title",
+    "completed",
+    "createdAt",
+    "dueDate",
+    "priority",
+    "category",
+    "parentId",
+    "timeSpentMs"
+  ];
+
+  const rows = [headers.join(",")];
+
+  for (const t of tasks) {
+    const row = [
+      escapeCsv(t.id),
+      escapeCsv(t.title),
+      escapeCsv(t.completed ? "1" : "0"),
+      escapeCsv(t.createdAt),
+      escapeCsv(t.dueDate ? new Date(t.dueDate).toISOString() : ""),
+      escapeCsv(t.priority),
+      escapeCsv(t.category),
+      escapeCsv(t.parentId ?? ""),
+      escapeCsv(t.timeSpent ?? 0)
+    ];
+    rows.push(row.join(","));
+  }
+
+  const csvContent = rows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  a.href = url;
+  a.download = `todo-tasks-${timestamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+exportCsvBtn.addEventListener("click", exportTasksCSV);
 
 importBtn.addEventListener("click", () => {
   importFileInput.click();
